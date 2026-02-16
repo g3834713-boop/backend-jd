@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import db from './database.js';
-import { v4 as uuidv4 } from 'crypto';
 import bcryptjs from 'bcryptjs';
 
 dotenv.config();
