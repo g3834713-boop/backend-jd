@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run build",
+  "env": {
+    "PORT": {
+      "default": "3001"
+    }
+  }
+}
