@@ -52,7 +52,7 @@ app.post('/api/products', async (req, res) => {
   try {
     await client.execute({
       sql: 'INSERT INTO products (id, name, description, price, categoryId, image, stock, isFeatured, status, estimatedDelivery) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      args: [id, name, description, price, categoryId, image, stock || 0, isFeatured ? 1 : 0, status || 'in_stock', estimatedDelivery],
+      args: [id, name ?? null, description ?? null, price ?? null, categoryId ?? null, image ?? null, stock ?? 0, isFeatured ? 1 : 0, status ?? 'in_stock', estimatedDelivery ?? null],
     });
     res.status(201).json({ id, name, description, price, categoryId, image, stock, isFeatured: !!isFeatured, status: status || 'in_stock', estimatedDelivery });
   } catch (err) {
@@ -65,7 +65,7 @@ app.put('/api/products/:id', async (req, res) => {
   try {
     await client.execute({
       sql: 'UPDATE products SET name = ?, description = ?, price = ?, categoryId = ?, image = ?, stock = ?, isFeatured = ?, status = ?, estimatedDelivery = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-      args: [name, description, price, categoryId, image, stock, isFeatured ? 1 : 0, status, estimatedDelivery, req.params.id],
+      args: [name ?? null, description ?? null, price ?? null, categoryId ?? null, image ?? null, stock ?? null, isFeatured ? 1 : 0, status ?? null, estimatedDelivery ?? null, req.params.id],
     });
     res.json({ id: req.params.id, name, description, price, categoryId, image, stock, isFeatured: !!isFeatured, status, estimatedDelivery });
   } catch (err) {
@@ -110,7 +110,7 @@ app.post('/api/categories', async (req, res) => {
   try {
     await client.execute({
       sql: 'INSERT INTO categories (id, name, slug, description) VALUES (?, ?, ?, ?)',
-      args: [id, name, computedSlug, description],
+      args: [id, name ?? null, computedSlug ?? null, description ?? null],
     });
     res.status(201).json({ id, name, slug: computedSlug, description });
   } catch (err) {
@@ -125,7 +125,7 @@ app.put('/api/categories/:id', async (req, res) => {
   try {
     await client.execute({
       sql: 'UPDATE categories SET name = ?, slug = ?, description = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-      args: [name, computedSlug, description, req.params.id],
+      args: [name ?? null, computedSlug ?? null, description ?? null, req.params.id],
     });
     res.json({ id: req.params.id, name, slug: computedSlug, description });
   } catch (err) {
@@ -150,7 +150,7 @@ app.post('/api/orders', async (req, res) => {
   try {
     await client.execute({
       sql: 'INSERT INTO orders (id, customerName, customerEmail, customerPhone, items, totalAmount, shippingAddress) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      args: [id, customerName, customerEmail, customerPhone, JSON.stringify(items), totalAmount, shippingAddress],
+      args: [id, customerName ?? null, customerEmail ?? null, customerPhone ?? null, JSON.stringify(items ?? []), totalAmount ?? null, shippingAddress ?? null],
     });
     res.status(201).json({ id, customerName, customerEmail, customerPhone, items, totalAmount, shippingAddress, status: 'pending' });
   } catch (err) {
@@ -206,7 +206,7 @@ app.post('/api/packages', async (req, res) => {
   try {
     await client.execute({
       sql: 'INSERT INTO packages (id, trackingId, orderId, status, shippingRoute, origin, destination, currentLocation, estimatedDelivery, weight, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      args: [id, trackingId, orderId, status || 'pending', shippingRoute || 'sea', origin, destination, currentLocation, estimatedDelivery, weight, notes],
+      args: [id, trackingId ?? null, orderId ?? null, status ?? 'pending', shippingRoute ?? 'sea', origin ?? null, destination ?? null, currentLocation ?? null, estimatedDelivery ?? null, weight ?? null, notes ?? null],
     });
     res.status(201).json({ id, trackingId, orderId, status: status || 'pending', shippingRoute: shippingRoute || 'sea', origin, destination, currentLocation, estimatedDelivery, weight, notes });
   } catch (err) {
@@ -220,7 +220,7 @@ app.put('/api/packages/:id', async (req, res) => {
   try {
     await client.execute({
       sql: 'UPDATE packages SET status = ?, shippingRoute = ?, currentLocation = ?, estimatedDelivery = ?, notes = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-      args: [status, shippingRoute, currentLocation, estimatedDelivery, notes, req.params.id],
+      args: [status ?? null, shippingRoute ?? null, currentLocation ?? null, estimatedDelivery ?? null, notes ?? null, req.params.id],
     });
     res.json({ id: req.params.id, status, shippingRoute, currentLocation, estimatedDelivery, notes });
   } catch (err) {
