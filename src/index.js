@@ -16,8 +16,14 @@ app.use(express.json());
 // Helper function to generate IDs
 const getId = () => Math.random().toString(36).substring(2, 11);
 
-// Initialize DB tables on startup
-initDB().catch(console.error);
+// Initialize DB tables — store promise so routes can await it
+const dbReady = initDB().catch(console.error);
+
+// Middleware to ensure DB is initialized before handling any request
+app.use(async (_req, _res, next) => {
+  await dbReady;
+  next();
+});
 
 // ============ PRODUCTS ENDPOINTS ============
 
