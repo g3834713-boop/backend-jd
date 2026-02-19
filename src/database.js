@@ -1,24 +1,15 @@
-import sqlite3 from 'sqlite3';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { createClient } from '@libsql/client';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = process.env.VERCEL
-  ? '/tmp/database.db'
-  : path.join(__dirname, '..', 'data', 'database.db');
-
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Database connection error:', err);
-  } else {
-    console.log('Connected to SQLite database');
-  }
+const client = createClient({
+  url: process.env.TURSO_DATABASE_URL || 'file:/tmp/local.db',
+  authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-db.serialize(() => {
-  // Products table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS products (
+export async function initDB() {
+  await client.batch([
+    `CREATE TABLE IF NOT EXISTS products (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT,
@@ -31,31 +22,16 @@ db.serialize(() => {
       estimatedDelivery TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Migrate: add missing columns if upgrading existing DB
-  db.run(`ALTER TABLE products ADD COLUMN isFeatured INTEGER DEFAULT 0`, () => {});
-  db.run(`ALTER TABLE products ADD COLUMN status TEXT DEFAULT 'in_stock'`, () => {});
-  db.run(`ALTER TABLE products ADD COLUMN estimatedDelivery TEXT`, () => {});
-
-  // Categories table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS categories (
+    )`,
+    `CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       slug TEXT,
       description TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  db.run(`ALTER TABLE categories ADD COLUMN slug TEXT`, () => {});
-
-  // Orders table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS orders (
+    )`,
+    `CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
       customerName TEXT NOT NULL,
       customerEmail TEXT NOT NULL,
@@ -66,12 +42,8 @@ db.serialize(() => {
       shippingAddress TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  // Packages table (for tracking)
-  db.run(`
-    CREATE TABLE IF NOT EXISTS packages (
+    )`,
+    `CREATE TABLE IF NOT EXISTS packages (
       id TEXT PRIMARY KEY,
       trackingId TEXT NOT NULL UNIQUE,
       orderId TEXT,
@@ -84,25 +56,17 @@ db.serialize(() => {
       weight REAL,
       notes TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (orderId) REFERENCES orders(id)
-    )
-  `);
-
-  db.run(`ALTER TABLE packages ADD COLUMN shippingRoute TEXT DEFAULT 'sea'`, () => {});
-
-  // Admin table
-  db.run(`
-    CREATE TABLE IF NOT EXISTS admins (
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS admins (
       id TEXT PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
       name TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
+    )`,
+  ], 'deferred');
   console.log('Database tables initialized');
-});
+}
 
-export default db;
+export default client;

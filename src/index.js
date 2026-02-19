@@ -1,7 +1,7 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import db from './database.js';
+import client, { initDB } from './database.js';
 import bcryptjs from 'bcryptjs';
 
 dotenv.config();
@@ -16,232 +16,235 @@ app.use(express.json());
 // Helper function to generate IDs
 const getId = () => Math.random().toString(36).substring(2, 11);
 
+// Initialize DB tables on startup
+initDB().catch(console.error);
+
 // ============ PRODUCTS ENDPOINTS ============
 
-app.get('/api/products', (req, res) => {
-  db.all('SELECT * FROM products ORDER BY createdAt DESC', (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
-  });
+app.get('/api/products', async (req, res) => {
+  try {
+    const result = await client.execute('SELECT * FROM products ORDER BY createdAt DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/api/products/:id', (req, res) => {
-  db.get('SELECT * FROM products WHERE id = ?', [req.params.id], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Product not found' });
-    res.json(row);
-  });
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const result = await client.execute({ sql: 'SELECT * FROM products WHERE id = ?', args: [req.params.id] });
+    if (!result.rows[0]) return res.status(404).json({ error: 'Product not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/products', (req, res) => {
+app.post('/api/products', async (req, res) => {
   const { name, description, price, categoryId, image, stock, isFeatured, status, estimatedDelivery } = req.body;
   const id = getId();
-  
-  db.run(
-    'INSERT INTO products (id, name, description, price, categoryId, image, stock, isFeatured, status, estimatedDelivery) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, name, description, price, categoryId, image, stock || 0, isFeatured ? 1 : 0, status || 'in_stock', estimatedDelivery],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({ id, name, description, price, categoryId, image, stock, isFeatured: !!isFeatured, status: status || 'in_stock', estimatedDelivery });
-    }
-  );
+  try {
+    await client.execute({
+      sql: 'INSERT INTO products (id, name, description, price, categoryId, image, stock, isFeatured, status, estimatedDelivery) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [id, name, description, price, categoryId, image, stock || 0, isFeatured ? 1 : 0, status || 'in_stock', estimatedDelivery],
+    });
+    res.status(201).json({ id, name, description, price, categoryId, image, stock, isFeatured: !!isFeatured, status: status || 'in_stock', estimatedDelivery });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put('/api/products/:id', (req, res) => {
+app.put('/api/products/:id', async (req, res) => {
   const { name, description, price, categoryId, image, stock, isFeatured, status, estimatedDelivery } = req.body;
-  
-  db.run(
-    'UPDATE products SET name = ?, description = ?, price = ?, categoryId = ?, image = ?, stock = ?, isFeatured = ?, status = ?, estimatedDelivery = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-    [name, description, price, categoryId, image, stock, isFeatured ? 1 : 0, status, estimatedDelivery, req.params.id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: req.params.id, name, description, price, categoryId, image, stock, isFeatured: !!isFeatured, status, estimatedDelivery });
-    }
-  );
+  try {
+    await client.execute({
+      sql: 'UPDATE products SET name = ?, description = ?, price = ?, categoryId = ?, image = ?, stock = ?, isFeatured = ?, status = ?, estimatedDelivery = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
+      args: [name, description, price, categoryId, image, stock, isFeatured ? 1 : 0, status, estimatedDelivery, req.params.id],
+    });
+    res.json({ id: req.params.id, name, description, price, categoryId, image, stock, isFeatured: !!isFeatured, status, estimatedDelivery });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete('/api/products/:id', (req, res) => {
-  db.run('DELETE FROM products WHERE id = ?', [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    await client.execute({ sql: 'DELETE FROM products WHERE id = ?', args: [req.params.id] });
     res.json({ success: true });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============ CATEGORIES ENDPOINTS ============
 
-app.get('/api/categories', (req, res) => {
-  db.all('SELECT * FROM categories ORDER BY createdAt DESC', (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
-  });
+app.get('/api/categories', async (req, res) => {
+  try {
+    const result = await client.execute('SELECT * FROM categories ORDER BY createdAt DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/api/categories/:id', (req, res) => {
-  db.get('SELECT * FROM categories WHERE id = ?', [req.params.id], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Category not found' });
-    res.json(row);
-  });
+app.get('/api/categories/:id', async (req, res) => {
+  try {
+    const result = await client.execute({ sql: 'SELECT * FROM categories WHERE id = ?', args: [req.params.id] });
+    if (!result.rows[0]) return res.status(404).json({ error: 'Category not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/categories', (req, res) => {
+app.post('/api/categories', async (req, res) => {
   const { name, slug, description } = req.body;
   const id = getId();
   const computedSlug = slug || name.toLowerCase().replace(/\s+/g, '-');
-  
-  db.run(
-    'INSERT INTO categories (id, name, slug, description) VALUES (?, ?, ?, ?)',
-    [id, name, computedSlug, description],
-    function(err) {
-      if (err) {
-        if (err.message.includes('UNIQUE')) {
-          return res.status(400).json({ error: 'Category name already exists' });
-        }
-        return res.status(500).json({ error: err.message });
-      }
-      res.status(201).json({ id, name, slug: computedSlug, description });
-    }
-  );
+  try {
+    await client.execute({
+      sql: 'INSERT INTO categories (id, name, slug, description) VALUES (?, ?, ?, ?)',
+      args: [id, name, computedSlug, description],
+    });
+    res.status(201).json({ id, name, slug: computedSlug, description });
+  } catch (err) {
+    if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'Category name already exists' });
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put('/api/categories/:id', (req, res) => {
+app.put('/api/categories/:id', async (req, res) => {
   const { name, slug, description } = req.body;
   const computedSlug = slug || name.toLowerCase().replace(/\s+/g, '-');
-  
-  db.run(
-    'UPDATE categories SET name = ?, slug = ?, description = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-    [name, computedSlug, description, req.params.id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: req.params.id, name, slug: computedSlug, description });
-    }
-  );
+  try {
+    await client.execute({
+      sql: 'UPDATE categories SET name = ?, slug = ?, description = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
+      args: [name, computedSlug, description, req.params.id],
+    });
+    res.json({ id: req.params.id, name, slug: computedSlug, description });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete('/api/categories/:id', (req, res) => {
-  db.run('DELETE FROM categories WHERE id = ?', [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+app.delete('/api/categories/:id', async (req, res) => {
+  try {
+    await client.execute({ sql: 'DELETE FROM categories WHERE id = ?', args: [req.params.id] });
     res.json({ success: true });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============ ORDERS ENDPOINTS ============
 
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', async (req, res) => {
   const { customerName, customerEmail, customerPhone, items, totalAmount, shippingAddress } = req.body;
   const id = getId();
-  
-  db.run(
-    'INSERT INTO orders (id, customerName, customerEmail, customerPhone, items, totalAmount, shippingAddress) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [id, customerName, customerEmail, customerPhone, JSON.stringify(items), totalAmount, shippingAddress],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({ 
-        id, 
-        customerName, 
-        customerEmail, 
-        customerPhone, 
-        items, 
-        totalAmount, 
-        shippingAddress,
-        status: 'pending'
-      });
-    }
-  );
-});
-
-app.get('/api/orders', (req, res) => {
-  db.all('SELECT * FROM orders ORDER BY createdAt DESC', (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const formattedRows = (rows || []).map(row => ({
-      ...row,
-      items: JSON.parse(row.items)
-    }));
-    res.json(formattedRows);
-  });
-});
-
-app.get('/api/orders/:id', (req, res) => {
-  db.get('SELECT * FROM orders WHERE id = ?', [req.params.id], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Order not found' });
-    res.json({
-      ...row,
-      items: JSON.parse(row.items)
+  try {
+    await client.execute({
+      sql: 'INSERT INTO orders (id, customerName, customerEmail, customerPhone, items, totalAmount, shippingAddress) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [id, customerName, customerEmail, customerPhone, JSON.stringify(items), totalAmount, shippingAddress],
     });
-  });
+    res.status(201).json({ id, customerName, customerEmail, customerPhone, items, totalAmount, shippingAddress, status: 'pending' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/orders', async (req, res) => {
+  try {
+    const result = await client.execute('SELECT * FROM orders ORDER BY createdAt DESC');
+    const rows = result.rows.map(row => ({ ...row, items: JSON.parse(row.items) }));
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/orders/:id', async (req, res) => {
+  try {
+    const result = await client.execute({ sql: 'SELECT * FROM orders WHERE id = ?', args: [req.params.id] });
+    if (!result.rows[0]) return res.status(404).json({ error: 'Order not found' });
+    const row = result.rows[0];
+    res.json({ ...row, items: JSON.parse(row.items) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============ PACKAGES ENDPOINTS ============
 
-app.get('/api/packages', (req, res) => {
-  db.all('SELECT * FROM packages ORDER BY createdAt DESC', (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows || []);
-  });
+app.get('/api/packages', async (req, res) => {
+  try {
+    const result = await client.execute('SELECT * FROM packages ORDER BY createdAt DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/api/packages/track/:trackingId', (req, res) => {
-  db.get('SELECT * FROM packages WHERE trackingId = ?', [req.params.trackingId], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Package not found' });
-    res.json(row);
-  });
+app.get('/api/packages/track/:trackingId', async (req, res) => {
+  try {
+    const result = await client.execute({ sql: 'SELECT * FROM packages WHERE trackingId = ?', args: [req.params.trackingId] });
+    if (!result.rows[0]) return res.status(404).json({ error: 'Package not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/packages', (req, res) => {
+app.post('/api/packages', async (req, res) => {
   const { trackingId, orderId, status, shippingRoute, origin, destination, currentLocation, estimatedDelivery, weight, notes } = req.body;
   const id = getId();
-  
-  db.run(
-    'INSERT INTO packages (id, trackingId, orderId, status, shippingRoute, origin, destination, currentLocation, estimatedDelivery, weight, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, trackingId, orderId, status || 'pending', shippingRoute || 'sea', origin, destination, currentLocation, estimatedDelivery, weight, notes],
-    function(err) {
-      if (err) {
-        if (err.message.includes('UNIQUE')) {
-          return res.status(400).json({ error: 'Tracking ID already exists' });
-        }
-        return res.status(500).json({ error: err.message });
-      }
-      res.status(201).json({ id, trackingId, orderId, status: status || 'pending', shippingRoute: shippingRoute || 'sea', origin, destination, currentLocation, estimatedDelivery, weight, notes });
-    }
-  );
+  try {
+    await client.execute({
+      sql: 'INSERT INTO packages (id, trackingId, orderId, status, shippingRoute, origin, destination, currentLocation, estimatedDelivery, weight, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [id, trackingId, orderId, status || 'pending', shippingRoute || 'sea', origin, destination, currentLocation, estimatedDelivery, weight, notes],
+    });
+    res.status(201).json({ id, trackingId, orderId, status: status || 'pending', shippingRoute: shippingRoute || 'sea', origin, destination, currentLocation, estimatedDelivery, weight, notes });
+  } catch (err) {
+    if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'Tracking ID already exists' });
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put('/api/packages/:id', (req, res) => {
+app.put('/api/packages/:id', async (req, res) => {
   const { status, shippingRoute, currentLocation, estimatedDelivery, notes } = req.body;
-  
-  db.run(
-    'UPDATE packages SET status = ?, shippingRoute = ?, currentLocation = ?, estimatedDelivery = ?, notes = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-    [status, shippingRoute, currentLocation, estimatedDelivery, notes, req.params.id],
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: req.params.id, status, shippingRoute, currentLocation, estimatedDelivery, notes });
-    }
-  );
+  try {
+    await client.execute({
+      sql: 'UPDATE packages SET status = ?, shippingRoute = ?, currentLocation = ?, estimatedDelivery = ?, notes = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
+      args: [status, shippingRoute, currentLocation, estimatedDelivery, notes, req.params.id],
+    });
+    res.json({ id: req.params.id, status, shippingRoute, currentLocation, estimatedDelivery, notes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete('/api/packages/:id', (req, res) => {
-  db.run('DELETE FROM packages WHERE id = ?', [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+app.delete('/api/packages/:id', async (req, res) => {
+  try {
+    await client.execute({ sql: 'DELETE FROM packages WHERE id = ?', args: [req.params.id] });
     res.json({ success: true });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============ ADMIN AUTHENTICATION ============
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  
-  db.get('SELECT * FROM admins WHERE email = ?', [email], async (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    const result = await client.execute({ sql: 'SELECT * FROM admins WHERE email = ?', args: [email] });
+    const row = result.rows[0];
     if (!row) return res.status(401).json({ error: 'Invalid credentials' });
-    
     const isValid = await bcryptjs.compare(password, row.password);
     if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
-    
     res.json({ success: true, email: row.email, name: row.name });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============ HEALTH CHECK ============
