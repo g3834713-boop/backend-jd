@@ -34,28 +34,28 @@ app.get('/api/products/:id', (req, res) => {
 });
 
 app.post('/api/products', (req, res) => {
-  const { name, description, price, categoryId, image, stock } = req.body;
+  const { name, description, price, categoryId, image, stock, isFeatured, status, estimatedDelivery } = req.body;
   const id = getId();
   
   db.run(
-    'INSERT INTO products (id, name, description, price, categoryId, image, stock) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [id, name, description, price, categoryId, image, stock || 0],
+    'INSERT INTO products (id, name, description, price, categoryId, image, stock, isFeatured, status, estimatedDelivery) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, name, description, price, categoryId, image, stock || 0, isFeatured ? 1 : 0, status || 'in_stock', estimatedDelivery],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({ id, name, description, price, categoryId, image, stock });
+      res.status(201).json({ id, name, description, price, categoryId, image, stock, isFeatured: !!isFeatured, status: status || 'in_stock', estimatedDelivery });
     }
   );
 });
 
 app.put('/api/products/:id', (req, res) => {
-  const { name, description, price, categoryId, image, stock } = req.body;
+  const { name, description, price, categoryId, image, stock, isFeatured, status, estimatedDelivery } = req.body;
   
   db.run(
-    'UPDATE products SET name = ?, description = ?, price = ?, categoryId = ?, image = ?, stock = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-    [name, description, price, categoryId, image, stock, req.params.id],
+    'UPDATE products SET name = ?, description = ?, price = ?, categoryId = ?, image = ?, stock = ?, isFeatured = ?, status = ?, estimatedDelivery = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
+    [name, description, price, categoryId, image, stock, isFeatured ? 1 : 0, status, estimatedDelivery, req.params.id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: req.params.id, name, description, price, categoryId, image, stock });
+      res.json({ id: req.params.id, name, description, price, categoryId, image, stock, isFeatured: !!isFeatured, status, estimatedDelivery });
     }
   );
 });
@@ -85,12 +85,13 @@ app.get('/api/categories/:id', (req, res) => {
 });
 
 app.post('/api/categories', (req, res) => {
-  const { name, description } = req.body;
+  const { name, slug, description } = req.body;
   const id = getId();
+  const computedSlug = slug || name.toLowerCase().replace(/\s+/g, '-');
   
   db.run(
-    'INSERT INTO categories (id, name, description) VALUES (?, ?, ?)',
-    [id, name, description],
+    'INSERT INTO categories (id, name, slug, description) VALUES (?, ?, ?, ?)',
+    [id, name, computedSlug, description],
     function(err) {
       if (err) {
         if (err.message.includes('UNIQUE')) {
@@ -98,20 +99,21 @@ app.post('/api/categories', (req, res) => {
         }
         return res.status(500).json({ error: err.message });
       }
-      res.status(201).json({ id, name, description });
+      res.status(201).json({ id, name, slug: computedSlug, description });
     }
   );
 });
 
 app.put('/api/categories/:id', (req, res) => {
-  const { name, description } = req.body;
+  const { name, slug, description } = req.body;
+  const computedSlug = slug || name.toLowerCase().replace(/\s+/g, '-');
   
   db.run(
-    'UPDATE categories SET name = ?, description = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-    [name, description, req.params.id],
+    'UPDATE categories SET name = ?, slug = ?, description = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
+    [name, computedSlug, description, req.params.id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: req.params.id, name, description });
+      res.json({ id: req.params.id, name, slug: computedSlug, description });
     }
   );
 });
@@ -188,12 +190,12 @@ app.get('/api/packages/track/:trackingId', (req, res) => {
 });
 
 app.post('/api/packages', (req, res) => {
-  const { trackingId, orderId, status, origin, destination, weight, notes } = req.body;
+  const { trackingId, orderId, status, shippingRoute, origin, destination, currentLocation, estimatedDelivery, weight, notes } = req.body;
   const id = getId();
   
   db.run(
-    'INSERT INTO packages (id, trackingId, orderId, status, origin, destination, weight, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, trackingId, orderId, status || 'pending', origin, destination, weight, notes],
+    'INSERT INTO packages (id, trackingId, orderId, status, shippingRoute, origin, destination, currentLocation, estimatedDelivery, weight, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, trackingId, orderId, status || 'pending', shippingRoute || 'sea', origin, destination, currentLocation, estimatedDelivery, weight, notes],
     function(err) {
       if (err) {
         if (err.message.includes('UNIQUE')) {
@@ -201,20 +203,20 @@ app.post('/api/packages', (req, res) => {
         }
         return res.status(500).json({ error: err.message });
       }
-      res.status(201).json({ id, trackingId, orderId, status: status || 'pending', origin, destination, weight, notes });
+      res.status(201).json({ id, trackingId, orderId, status: status || 'pending', shippingRoute: shippingRoute || 'sea', origin, destination, currentLocation, estimatedDelivery, weight, notes });
     }
   );
 });
 
 app.put('/api/packages/:id', (req, res) => {
-  const { status, currentLocation, notes } = req.body;
+  const { status, shippingRoute, currentLocation, estimatedDelivery, notes } = req.body;
   
   db.run(
-    'UPDATE packages SET status = ?, currentLocation = ?, notes = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
-    [status, currentLocation, notes, req.params.id],
+    'UPDATE packages SET status = ?, shippingRoute = ?, currentLocation = ?, estimatedDelivery = ?, notes = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?',
+    [status, shippingRoute, currentLocation, estimatedDelivery, notes, req.params.id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: req.params.id, status, currentLocation, notes });
+      res.json({ id: req.params.id, status, shippingRoute, currentLocation, estimatedDelivery, notes });
     }
   );
 });

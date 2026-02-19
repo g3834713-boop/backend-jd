@@ -24,21 +24,32 @@ db.serialize(() => {
       categoryId TEXT,
       image TEXT,
       stock INTEGER DEFAULT 0,
+      isFeatured INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'in_stock',
+      estimatedDelivery TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Migrate: add missing columns if upgrading existing DB
+  db.run(`ALTER TABLE products ADD COLUMN isFeatured INTEGER DEFAULT 0`, () => {});
+  db.run(`ALTER TABLE products ADD COLUMN status TEXT DEFAULT 'in_stock'`, () => {});
+  db.run(`ALTER TABLE products ADD COLUMN estimatedDelivery TEXT`, () => {});
 
   // Categories table
   db.run(`
     CREATE TABLE IF NOT EXISTS categories (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
+      slug TEXT,
       description TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  db.run(`ALTER TABLE categories ADD COLUMN slug TEXT`, () => {});
 
   // Orders table
   db.run(`
@@ -63,10 +74,11 @@ db.serialize(() => {
       trackingId TEXT NOT NULL UNIQUE,
       orderId TEXT,
       status TEXT DEFAULT 'pending',
+      shippingRoute TEXT DEFAULT 'sea',
       origin TEXT,
       destination TEXT,
       currentLocation TEXT,
-      estimatedDelivery DATETIME,
+      estimatedDelivery TEXT,
       weight REAL,
       notes TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -74,6 +86,8 @@ db.serialize(() => {
       FOREIGN KEY (orderId) REFERENCES orders(id)
     )
   `);
+
+  db.run(`ALTER TABLE packages ADD COLUMN shippingRoute TEXT DEFAULT 'sea'`, () => {});
 
   // Admin table
   db.run(`
