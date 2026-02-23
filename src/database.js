@@ -65,7 +65,26 @@ export async function initDB() {
       name TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
   ], 'deferred');
+
+  // Seed default settings from env vars (only if not already set)
+  const defaults = [
+    { key: 'whatsapp_number', value: process.env.VITE_WHATSAPP_NUMBER || process.env.WHATSAPP_NUMBER || '' },
+    { key: 'brand_name', value: process.env.VITE_BRAND_NAME || process.env.BRAND_NAME || 'Jordan Imports' },
+  ];
+  for (const { key, value } of defaults) {
+    if (!value) continue;
+    await client.execute({
+      sql: 'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)',
+      args: [key, value],
+    });
+  }
+
   console.log('Database tables initialized');
 }
 

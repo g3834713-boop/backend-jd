@@ -259,6 +259,35 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
+// ============ SETTINGS ENDPOINTS ============
+
+app.get('/api/settings', async (req, res) => {
+  try {
+    const result = await client.execute('SELECT key, value FROM settings');
+    const settings = {};
+    for (const row of result.rows) {
+      settings[row.key] = row.value;
+    }
+    res.json(settings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/settings/:key', async (req, res) => {
+  const { value } = req.body;
+  const { key } = req.params;
+  try {
+    await client.execute({
+      sql: 'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updatedAt = CURRENT_TIMESTAMP',
+      args: [key, value ?? ''],
+    });
+    res.json({ key, value });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
